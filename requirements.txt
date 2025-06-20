@@ -1,0 +1,8 @@
+streamlit
+pandas
+numpy
+validators
+phonenumbers
+sqlalchemy
+openpyxl
+psycopg2-binary
