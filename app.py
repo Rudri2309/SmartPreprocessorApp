@@ -16,7 +16,7 @@ from sqlalchemy import create_engine
 from preprocessor import SmartPreprocessor
 
 st.set_page_config(page_title="SmartPreprocessor Tool", layout="wide")
-st.title("SmartPreprocessor – Universal Data Cleaning Tool")
+st.title("SmartPreprocessor")
 
 source_type = st.selectbox("Select your data source type",
                            ["CSV", "Excel", "JSON", "SQLite (.db)", "PostgreSQL"])
