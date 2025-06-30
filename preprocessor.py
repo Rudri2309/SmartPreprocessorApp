@@ -27,6 +27,25 @@ class SmartPreprocessor:
             "duplicate_rows_dropped": 0,
             "validations_added": []
         }
+        
+    def validate_zip_codes(self):
+        for col in self.df.columns:
+            if 'zip' in col.lower():
+                validation_col = f"Valid {col}"
+                self.df[validation_col] = self.df[col].astype(str).str.match(r'^\d{5}$')
+                invalid_count = (~self.df[validation_col]).sum()
+                self.summary[f"Invalid ZIP Codes in {col}"] = int(invalid_count)
+                self.summary["validations_added"].append(validation_col)
+            
+    def check_negative_values(self, numeric_cols=None):
+        if numeric_cols is None:
+            numeric_cols = self.df.select_dtypes(include='number').columns.tolist()
+
+        for col in numeric_cols:
+            invalid_rows = self.df[self.df[col] < 0]
+            invalid_count = len(invalid_rows)
+            if invalid_count > 0:
+                self.summary[f"Negative Values in {col}"] = int(invalid_count)
 
     def _detect_text_fields(self):
         likely_texts = []
@@ -68,28 +87,4 @@ class SmartPreprocessor:
     def validate_websites(self):
         for col in self.website_cols:
             validation_col = f"Valid {col}"
-            self.df[validation_col] = self.df[col].apply(lambda x: validators.url(str(x).strip()))
-            self.summary["validations_added"].append(validation_col)
-
-    def clean_text_columns(self):
-        for col in self.text_cols:
-            self.df[col] = self.df[col].apply(lambda x: x.strip().title() if isinstance(x, str) else x)
-
-    def drop_duplicates(self, subset=None):
-        before = self.df.shape[0]
-        if subset and subset in self.df.columns:
-            self.df.drop_duplicates(subset=subset, inplace=True)
-        else:
-            self.df.drop_duplicates(inplace=True)
-        after = self.df.shape[0]
-        self.summary["duplicate_rows_dropped"] = before - after
-
-    def get_cleaned_data(self):
-        return self.df
-
-    def get_summary(self):
-        self.summary["final_shape"] = self.df.shape
-        return self.summary
-
-    def export(self, filename):
-        self.df.to_csv(filename, index=False)
+            self.df[validation_col

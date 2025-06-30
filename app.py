@@ -84,6 +84,8 @@ if df is not None:
         tool.validate_websites()
         tool.clean_text_columns()
         tool.drop_duplicates()
+        tool.validate_zip_codes()
+        tool.check_negative_values()
 
         cleaned_df = tool.get_cleaned_data()
 
@@ -114,4 +116,4 @@ if df is not None:
             cleaned_df.to_json(export_filename, orient="records", lines=True)
 
         with open(export_filename, "rb") as f:
-            st.download_button(f"📥 Download Cleaned Data ({export_format})", f, file_name=export_filename)
+            st.download_button(f"📥 
