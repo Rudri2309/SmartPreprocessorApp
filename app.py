@@ -116,4 +116,4 @@ if df is not None:
             cleaned_df.to_json(export_filename, orient="records", lines=True)
 
         with open(export_filename, "rb") as f:
-            st.download_button(f"📥 
+            st.download_button(f"📥 Download Cleaned Data ({export_format})", f, file_name=export_filename)

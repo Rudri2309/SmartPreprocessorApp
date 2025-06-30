@@ -87,4 +87,28 @@ class SmartPreprocessor:
     def validate_websites(self):
         for col in self.website_cols:
             validation_col = f"Valid {col}"
-            self.df[validation_col
+            self.df[validation_col] = self.df[col].apply(lambda x: validators.url(str(x).strip()))
+            self.summary["validations_added"].append(validation_col)
+
+    def clean_text_columns(self):
+        for col in self.text_cols:
+            self.df[col] = self.df[col].apply(lambda x: x.strip().title() if isinstance(x, str) else x)
+
+    def drop_duplicates(self, subset=None):
+        before = self.df.shape[0]
+        if subset and subset in self.df.columns:
+            self.df.drop_duplicates(subset=subset, inplace=True)
+        else:
+            self.df.drop_duplicates(inplace=True)
+        after = self.df.shape[0]
+        self.summary["duplicate_rows_dropped"] = before - after
+
+    def get_cleaned_data(self):
+        return self.df
+
+    def get_summary(self):
+        self.summary["final_shape"] = self.df.shape
+        return self.summary
+
+    def export(self, filename):
+        self.df.to_csv(filename, index=False)
