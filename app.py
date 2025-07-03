@@ -3,25 +3,26 @@ import pandas as pd
 import os
 import sqlite3
 import json
+import io
 from sqlalchemy import create_engine
 from preprocessor import SmartPreprocessor
-import io
 
 st.set_page_config(page_title="SmartPreprocessor", layout="wide")
-st.title("SmartPreprocessor")
+st.title("SmartPreprocessor – Universal Healthcare Data Cleaning Tool")
 
-source_type = st.selectbox("Select your data source type",
-                           ["CSV", "Excel", "JSON", "SQLite (.db)", "PostgreSQL"])
+# --- 1️⃣ Load source
+source_type = st.selectbox(
+    "Select your data source type",
+    ["CSV", "Excel", "JSON", "SQLite (.db)", "PostgreSQL"]
+)
 
 df = None
-filename = None
 
 if source_type in ["CSV", "Excel", "JSON", "SQLite (.db)"]:
     uploaded_file = st.file_uploader(f"Upload your {source_type} file")
     if uploaded_file:
         filename = uploaded_file.name
         ext = os.path.splitext(filename)[1]
-
         try:
             if source_type == "CSV":
                 df = pd.read_csv(uploaded_file)
@@ -38,6 +39,7 @@ if source_type in ["CSV", "Excel", "JSON", "SQLite (.db)"]:
             st.success("✅ Data loaded successfully.")
         except Exception as e:
             st.error(f"❌ Error loading file: {e}")
+
 else:
     st.subheader("PostgreSQL Connection")
     pg_host = st.text_input("Host", value="localhost")
@@ -55,6 +57,7 @@ else:
         except Exception as e:
             st.error(f"❌ Connection failed: {e}")
 
+# --- 2️⃣ Run preprocessing
 if df is not None:
     st.write("📋 Data Preview:")
     st.dataframe(df.head())
@@ -62,11 +65,10 @@ if df is not None:
     if st.button("🔧 Run SmartPreprocessor"):
         tool = SmartPreprocessor(df)
 
-        original_shape = df.shape
-        original_columns = df.columns.tolist()
-
+        # --- Run all steps in proper order
         tool.drop_empty_columns()
         tool.convert_dates()
+        tool.clean_numeric_fields()
         tool.clean_phones()
         tool.validate_emails()
         tool.validate_websites()
@@ -79,29 +81,45 @@ if df is not None:
         cleaned_df = tool.get_cleaned_data()
         summary = tool.get_summary()
 
-        st.subheader("📝 Professional Cleaning Summary")
+        # --- Show detailed report
+        st.subheader("📝 Detailed Cleaning Summary Report")
         st.json(summary)
 
-        # Allow user to download the cleaned file
+        # --- Download cleaned data
         export_format = st.selectbox("Choose download format", ["CSV", "Excel", "JSON"])
         if export_format == "CSV":
             output = io.StringIO()
             cleaned_df.to_csv(output, index=False)
-            st.download_button("Download Cleaned CSV", data=output.getvalue(),
-                               file_name="Cleaned_Output.csv", mime="text/csv")
+            st.download_button(
+                "📥 Download Cleaned CSV",
+                data=output.getvalue(),
+                file_name="Cleaned_Output.csv",
+                mime="text/csv"
+            )
         elif export_format == "Excel":
             output = io.BytesIO()
             with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
                 cleaned_df.to_excel(writer, index=False)
-            st.download_button("Download Cleaned Excel", data=output.getvalue(),
-                               file_name="Cleaned_Output.xlsx",
-                               mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+            st.download_button(
+                "📥 Download Cleaned Excel",
+                data=output.getvalue(),
+                file_name="Cleaned_Output.xlsx",
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            )
         elif export_format == "JSON":
             output = io.StringIO()
             cleaned_df.to_json(output, orient="records", lines=True)
-            st.download_button("Download Cleaned JSON", data=output.getvalue(),
-                               file_name="Cleaned_Output.json", mime="application/json")
+            st.download_button(
+                "📥 Download Cleaned JSON",
+                data=output.getvalue(),
+                file_name="Cleaned_Output.json",
+                mime="application/json"
+            )
 
-        # Download summary report as JSON
-        st.download_button("📄 Download Summary Report", data=json.dumps(summary, indent=2),
-                           file_name="Cleaning_Summary.json", mime="application/json")
+        # --- Download cleaning summary
+        st.download_button(
+            "📄 Download Cleaning Summary Report",
+            data=json.dumps(summary, indent=2),
+            file_name="Cleaning_Summary.json",
+            mime="application/json"
+        )
