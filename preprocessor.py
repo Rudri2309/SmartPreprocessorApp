@@ -172,36 +172,4 @@ class SmartPreprocessor:
         report = {
             "Data Shape": {
                 "Original Rows": original_rows,
-                "Final Rows": final_rows,
-                "Rows Dropped": rows_dropped,
-                "% Rows Dropped": round(pct_rows_dropped, 2),
-            }
-        }
-
-        if self.summary.get("columns_removed"):
-            report["Data Shape"]["Columns Removed"] = self.summary["columns_removed"]
-
-        if self.summary.get("nested_fields_flagged"):
-            report["Data Shape"]["Nested Fields Flagged"] = self.summary["nested_fields_flagged"]
-
-        if self.summary.get("validations_added"):
-            report["Checks Performed"] = self.summary["validations_added"]
-
-        if invalid_counts:
-            report["Invalid Data"] = invalid_counts
-
-        if negative_counts or total_outliers:
-            report["Numeric Quality"] = {}
-            if negative_counts:
-                report["Numeric Quality"]["Negative Values"] = negative_counts
-            if outliers:
-                report["Numeric Quality"]["Outliers Flagged"] = outliers
-                report["Numeric Quality"]["Total Outliers"] = total_outliers
-
-        if self.summary.get("duplicate_rows_dropped", 0) > 0:
-            report["Duplicates Dropped"] = self.summary.get("duplicate_rows_dropped", 0)
-
-        if health_report:
-            report["Health Report"] = health_report
-
-        return report
+                "Final Rows":
