@@ -172,4 +172,8 @@ class SmartPreprocessor:
             "Outliers Flagged": outliers if outliers else "None",
             "Total Outliers": total_outliers
         },
-        "🔗 Duplicates Dropped"
+        "🔗 Duplicates Dropped": self.summary.get("duplicate_rows_dropped", 0),
+        "📝 Health Report": health_report if health_report else "None"
+    }
+
+    return self.summary
