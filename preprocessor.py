@@ -145,19 +145,19 @@ class SmartPreprocessor:
         self.summary["rows_dropped"] = int(rows_dropped)
         self.summary["percent_rows_dropped"] = round(pct_rows_dropped, 2)
 
-        # Organize what we have
-        invalid_counts = {k: v for k, v in self.summary.items() if "Remaining Invalid" in k}
+        invalid_counts = {k: v for k, v in self.summary.items() if "Remaining Invalid" in k and v > 0}
         original_invalids = {k: v for k, v in self.summary.items() if "Original Invalid" in k}
         negative_counts = {k: v for k, v in self.summary.items() if "Negative" in k}
         outliers = self.summary.get("outliers_flagged", {})
         total_outliers = sum(outliers.values())
 
-        # 📌 Build clear health report table
         health_report = []
         for k in original_invalids:
             after_k = k.replace("Original", "Remaining")
             before = self.summary[k]
             after = self.summary.get(after_k, 0)
+            if before == 0 and after == 0:
+                continue  # skip if no invalids at all
             pct_of_total = round(after / original_rows * 100, 2) if original_rows else 0
             improvement = round(((before - after) / before * 100), 2) if before else 0
 
@@ -169,29 +169,39 @@ class SmartPreprocessor:
                 "% Improvement": improvement
             })
 
-        self.summary["Detailed_Report"] = {
-            "📊 Data Shape": {
+        report = {
+            "Data Shape": {
                 "Original Rows": original_rows,
                 "Final Rows": final_rows,
                 "Rows Dropped": rows_dropped,
-                "Percent Rows Dropped": round(pct_rows_dropped, 2),
-                "Columns Removed (Empty >90%)": self.summary.get("columns_removed", []),
-                "Nested Fields Flagged": self.summary.get("nested_fields_flagged", [])
-            },
-            "✅ Checks Performed": self.summary.get("validations_added", []),
-            "❌ Invalid Data": health_report if health_report else "None",
-            "⚠️ Numeric Quality": {
-                "Negative Values": negative_counts if negative_counts else "None",
-                "Outliers Flagged": outliers if outliers else "None",
-                "Total Outliers": total_outliers
-            },
-            "🔗 Duplicates Dropped": self.summary.get("duplicate_rows_dropped", 0),
-            "📝 Overall Data Health": {
-                "Rows Dropped": rows_dropped,
                 "% Rows Dropped": round(pct_rows_dropped, 2),
-                "Invalid Records Remaining": invalid_counts if invalid_counts else "None",
-                "Key Notes": "High invalid counts may need upstream cleaning." if invalid_counts else "No major invalids detected."
             }
         }
 
-        return self.summary
+        if self.summary.get("columns_removed"):
+            report["Data Shape"]["Columns Removed"] = self.summary["columns_removed"]
+
+        if self.summary.get("nested_fields_flagged"):
+            report["Data Shape"]["Nested Fields Flagged"] = self.summary["nested_fields_flagged"]
+
+        if self.summary.get("validations_added"):
+            report["Checks Performed"] = self.summary["validations_added"]
+
+        if invalid_counts:
+            report["Invalid Data"] = invalid_counts
+
+        if negative_counts or total_outliers:
+            report["Numeric Quality"] = {}
+            if negative_counts:
+                report["Numeric Quality"]["Negative Values"] = negative_counts
+            if outliers:
+                report["Numeric Quality"]["Outliers Flagged"] = outliers
+                report["Numeric Quality"]["Total Outliers"] = total_outliers
+
+        if self.summary.get("duplicate_rows_dropped", 0) > 0:
+            report["Duplicates Dropped"] = self.summary.get("duplicate_rows_dropped", 0)
+
+        if health_report:
+            report["Health Report"] = health_report
+
+        return report
