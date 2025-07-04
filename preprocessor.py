@@ -129,51 +129,51 @@ class SmartPreprocessor:
         return self.df
 
     def get_summary(self):
-    self.summary["final_shape"] = self.df.shape
+        self.summary["final_shape"] = self.df.shape
 
-    original_rows = self.summary["original_shape"][0]
-    final_rows = self.summary["final_shape"][0]
-    rows_dropped = original_rows - final_rows
-    pct_rows_dropped = (rows_dropped / original_rows) * 100 if original_rows else 0
-    self.summary["rows_dropped"] = int(rows_dropped)
-    self.summary["percent_rows_dropped"] = round(pct_rows_dropped, 2)
+        original_rows = self.summary["original_shape"][0]
+        final_rows = self.summary["final_shape"][0]
+        rows_dropped = original_rows - final_rows
+        pct_rows_dropped = (rows_dropped / original_rows) * 100 if original_rows else 0
+        self.summary["rows_dropped"] = int(rows_dropped)
+        self.summary["percent_rows_dropped"] = round(pct_rows_dropped, 2)
 
-    invalid_counts = {k: v for k, v in self.summary.items() if "Remaining Invalid" in k}
-    original_invalids = {k: v for k, v in self.summary.items() if "Original Invalid" in k}
-    negative_counts = {k: v for k, v in self.summary.items() if "Negative" in k}
-    outliers = self.summary.get("outliers_flagged", {})
-    total_outliers = sum(outliers.values())
+        invalid_counts = {k: v for k, v in self.summary.items() if "Remaining Invalid" in k}
+        original_invalids = {k: v for k, v in self.summary.items() if "Original Invalid" in k}
+        negative_counts = {k: v for k, v in self.summary.items() if "Negative" in k}
+        outliers = self.summary.get("outliers_flagged", {})
+        total_outliers = sum(outliers.values())
 
-    # Health comparison: Before vs After
-    health_report = {}
-    for k in original_invalids:
-        after_k = k.replace("Original", "Remaining")
-        before = self.summary[k]
-        after = self.summary.get(after_k, 0)
-        change = round(((before - after) / before * 100), 2) if before else 0
-        health_report[k.replace("Original ", "")] = {
-            "Before": before,
-            "After": after,
-            "% Change": change
+        # Health comparison: Before vs After
+        health_report = {}
+        for k in original_invalids:
+            after_k = k.replace("Original", "Remaining")
+            before = self.summary[k]
+            after = self.summary.get(after_k, 0)
+            change = round(((before - after) / before * 100), 2) if before else 0
+            health_report[k.replace("Original ", "")] = {
+                "Before": before,
+                "After": after,
+                "% Change": change
+            }
+
+        self.summary["Detailed_Report"] = {
+            "📊 Data Shape": {
+                "Original Rows": original_rows,
+                "Final Rows": final_rows,
+                "Rows Dropped": rows_dropped,
+                "Percent Rows Dropped": pct_rows_dropped,
+                "Columns Removed (Empty >90%)": self.summary.get("columns_removed", [])
+            },
+            "✅ Validations Run": self.summary.get("validations_added", []),
+            "❌ Invalid Counts": invalid_counts if invalid_counts else "None",
+            "⚠️ Numeric Quality": {
+                "Negative Values": negative_counts if negative_counts else "None",
+                "Outliers Flagged": outliers if outliers else "None",
+                "Total Outliers": total_outliers
+            },
+            "🔗 Duplicates Dropped": self.summary.get("duplicate_rows_dropped", 0),
+            "📝 Health Report": health_report if health_report else "None"
         }
 
-    self.summary["Detailed_Report"] = {
-        "📊 Data Shape": {
-            "Original Rows": original_rows,
-            "Final Rows": final_rows,
-            "Rows Dropped": rows_dropped,
-            "Percent Rows Dropped": pct_rows_dropped,
-            "Columns Removed (Empty >90%)": self.summary.get("columns_removed", [])
-        },
-        "✅ Validations Run": self.summary.get("validations_added", []),
-        "❌ Invalid Counts": invalid_counts if invalid_counts else "None",
-        "⚠️ Numeric Quality": {
-            "Negative Values": negative_counts if negative_counts else "None",
-            "Outliers Flagged": outliers if outliers else "None",
-            "Total Outliers": total_outliers
-        },
-        "🔗 Duplicates Dropped": self.summary.get("duplicate_rows_dropped", 0),
-        "📝 Health Report": health_report if health_report else "None"
-    }
-
-    return self.summary
+        return self.summary
