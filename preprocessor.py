@@ -50,33 +50,35 @@ class SmartPreprocessor:
                 self.df[col] = pd.to_numeric(self.df[col], errors='coerce')
         self.numeric_cols = self.df.select_dtypes(include='number').columns.tolist()
 
+    # Replace your clean_phones() with pattern check
     def clean_phones(self):
         for col in self.phone_cols:
-            original_invalid = self.df[col].isnull().sum()
-            validation_col = f"Valid {col}"
-
-            def clean_number(val):
+            def is_invalid(val):
                 try:
                     parsed = phonenumbers.parse(str(val), None)
-                    if phonenumbers.is_possible_number(parsed) and phonenumbers.is_valid_number(parsed):
-                        return phonenumbers.format_number(parsed, phonenumbers.PhoneNumberFormat.E164)
-                    else:
-                        return np.nan
-                except Exception:
-                    return np.nan
+                    return not (phonenumbers.is_possible_number(parsed) and phonenumbers.is_valid_number(parsed))
+                except:
+                    return True
 
-            self.df[col] = self.df[col].apply(clean_number)
+            original_invalid = self.df[col].apply(is_invalid).sum()
+            self.df[col] = self.df[col].apply(lambda x: np.nan if is_invalid(x) else phonenumbers.format_number(phonenumbers.parse(str(x), None), phonenumbers.PhoneNumberFormat.E164) if x else np.nan)
             remaining_invalid = self.df[col].isnull().sum()
+
+            validation_col = f"Valid {col}"
             self.summary[f"Original Invalid Phones in {col}"] = int(original_invalid)
             self.summary[f"Remaining Invalid Phones in {col}"] = int(remaining_invalid)
             self.summary["validations_added"].append(validation_col)
 
+
     def validate_emails(self):
         for col in self.email_cols:
-            original_invalid = self.df[~self.df[col].astype(str).str.contains("@")].shape[0]
+            def is_invalid(val):
+                return not validators.email(str(val).strip())
+            original_invalid = self.df[col].apply(is_invalid).sum()
             validation_col = f"Valid {col}"
-            self.df[validation_col] = self.df[col].apply(lambda x: validators.email(str(x).strip()))
+            self.df[validation_col] = self.df[col].apply(lambda x: not is_invalid(x))
             remaining_invalid = (~self.df[validation_col]).sum()
+
             self.summary[f"Original Invalid Emails in {col}"] = int(original_invalid)
             self.summary[f"Remaining Invalid Emails in {col}"] = int(remaining_invalid)
             self.summary["validations_added"].append(validation_col)
@@ -138,46 +140,58 @@ class SmartPreprocessor:
         original_rows = self.summary["original_shape"][0]
         final_rows = self.summary["final_shape"][0]
         rows_dropped = original_rows - final_rows
-        pct_rows_dropped = (rows_dropped / original_rows) * 100 if original_rows else 0
+        pct_rows_dropped = (rows_dropped / original_rows * 100) if original_rows else 0
+
         self.summary["rows_dropped"] = int(rows_dropped)
         self.summary["percent_rows_dropped"] = round(pct_rows_dropped, 2)
 
+        # Organize what we have
         invalid_counts = {k: v for k, v in self.summary.items() if "Remaining Invalid" in k}
         original_invalids = {k: v for k, v in self.summary.items() if "Original Invalid" in k}
         negative_counts = {k: v for k, v in self.summary.items() if "Negative" in k}
         outliers = self.summary.get("outliers_flagged", {})
         total_outliers = sum(outliers.values())
 
-        health_report = {}
+        # 📌 Build clear health report table
+        health_report = []
         for k in original_invalids:
             after_k = k.replace("Original", "Remaining")
             before = self.summary[k]
             after = self.summary.get(after_k, 0)
-            change = round(((before - after) / before * 100), 2) if before else 0
-            health_report[k.replace("Original ", "")] = {
+            pct_of_total = round(after / original_rows * 100, 2) if original_rows else 0
+            improvement = round(((before - after) / before * 100), 2) if before else 0
+
+            health_report.append({
+                "Field": k.replace("Original Invalid ", ""),
                 "Before": before,
                 "After": after,
-                "% Change": change
-            }
+                "% of Total Rows": pct_of_total,
+                "% Improvement": improvement
+            })
 
         self.summary["Detailed_Report"] = {
             "📊 Data Shape": {
                 "Original Rows": original_rows,
                 "Final Rows": final_rows,
                 "Rows Dropped": rows_dropped,
-                "Percent Rows Dropped": pct_rows_dropped,
+                "Percent Rows Dropped": round(pct_rows_dropped, 2),
                 "Columns Removed (Empty >90%)": self.summary.get("columns_removed", []),
                 "Nested Fields Flagged": self.summary.get("nested_fields_flagged", [])
             },
-            "✅ Validations Run": self.summary.get("validations_added", []),
-            "❌ Invalid Counts": invalid_counts if invalid_counts else "None",
+            "✅ Checks Performed": self.summary.get("validations_added", []),
+            "❌ Invalid Data": health_report if health_report else "None",
             "⚠️ Numeric Quality": {
                 "Negative Values": negative_counts if negative_counts else "None",
                 "Outliers Flagged": outliers if outliers else "None",
                 "Total Outliers": total_outliers
             },
             "🔗 Duplicates Dropped": self.summary.get("duplicate_rows_dropped", 0),
-            "📝 Health Report": health_report if health_report else "None"
+            "📝 Overall Data Health": {
+                "Rows Dropped": rows_dropped,
+                "% Rows Dropped": round(pct_rows_dropped, 2),
+                "Invalid Records Remaining": invalid_counts if invalid_counts else "None",
+                "Key Notes": "High invalid counts may need upstream cleaning." if invalid_counts else "No major invalids detected."
+            }
         }
 
         return self.summary
