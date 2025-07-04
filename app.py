@@ -122,5 +122,4 @@ if df is not None:
             "Download Cleaning Summary Report",
             data=json.dumps(summary, indent=2),
             file_name="Cleaning_Summary.json",
-            mime="application/json"
-        )
+  
