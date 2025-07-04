@@ -8,7 +8,7 @@ from sqlalchemy import create_engine
 from preprocessor import SmartPreprocessor
 
 st.set_page_config(page_title="SmartPreprocessor", layout="wide")
-st.title("SmartPreprocessor – Universal Healthcare Data Cleaning Tool")
+st.title("SmartPreprocessor – Universal Healthcare CRM Data Cleaning Tool")
 
 # --- 1️⃣ Load source
 source_type = st.selectbox(
@@ -63,25 +63,26 @@ if df is not None:
     st.dataframe(df.head())
 
     if st.button("🔧 Run SmartPreprocessor"):
-        tool = SmartPreprocessor(df)
+        with st.spinner("Processing your data..."):
+            tool = SmartPreprocessor(df)
 
-        # --- Run all steps in proper order
-        tool.drop_empty_columns()
-        tool.convert_dates()
-        tool.clean_numeric_fields()
-        tool.clean_phones()
-        tool.validate_emails()
-        tool.validate_websites()
-        tool.validate_zip_codes()
-        tool.check_negative_values()
-        tool.detect_outliers_iqr()
-        tool.clean_text_columns()
-        tool.drop_duplicates()
+            # --- Run all steps
+            tool.drop_empty_columns()
+            tool.convert_dates()
+            tool.clean_numeric_fields()
+            tool.clean_phones()
+            tool.validate_emails()
+            tool.validate_websites()
+            tool.validate_zip_codes()
+            tool.check_negative_values()
+            tool.detect_outliers_iqr()
+            tool.clean_text_columns()
+            tool.drop_duplicates()
 
-        cleaned_df = tool.get_cleaned_data()
-        summary = tool.get_summary()  # ✅ Use your full detailed version!
+            cleaned_df = tool.get_cleaned_data()
+            summary = tool.get_summary()
 
-        # --- Show detailed professional report
+        # --- Show detailed report
         st.subheader("📝 Detailed Cleaning Summary Report")
         st.json(summary)
 

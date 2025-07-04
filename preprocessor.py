@@ -7,28 +7,32 @@ import phonenumbers
 class SmartPreprocessor:
     def __init__(self, df):
         self.df = df.copy()
-        self.phone_cols = [col for col in self.df.columns if 'phone' in col.lower()]
-        self.email_cols = [col for col in self.df.columns if 'email' in col.lower()]
-        self.date_cols = [col for col in self.df.columns if 'date' in col.lower()]
-        self.website_cols = [col for col in self.df.columns if 'website' in col.lower()]
-        self.zip_cols = [col for col in self.df.columns if 'zip' in col.lower()]
-        self.text_cols = self._detect_text_fields()
+
+        self.phone_cols = self._match_cols(['phone', 'contact', 'mobile', 'cell'])
+        self.email_cols = self._match_cols(['email', 'e-mail'])
+        self.date_cols = self._match_cols(['date', 'dob', 'admission', 'discharge'])
+        self.website_cols = self._match_cols(['website', 'web', 'url', 'link'])
+        self.zip_cols = self._match_cols(['zip', 'zipcode', 'postal'])
+        self.id_cols = self._match_cols(['id', 'patient', 'record', 'case'])
         self.numeric_cols = self.df.select_dtypes(include='number').columns.tolist()
+        self.text_cols = self._match_cols(['name', 'city', 'country', 'state', 'company', 'clinic', 'doctor', 'hospital'])
 
         self.summary = {
             "original_shape": self.df.shape,
             "columns_removed": [],
             "duplicate_rows_dropped": 0,
             "validations_added": [],
-            "outliers_flagged": {}
+            "outliers_flagged": {},
+            "nested_fields_flagged": []
         }
 
-    def _detect_text_fields(self):
-        likely_texts = []
+        # Check for nested JSON fields
         for col in self.df.columns:
-            if self.df[col].dtype == 'object' and any(x in col.lower() for x in ['name', 'city', 'country', 'company']):
-                likely_texts.append(col)
-        return likely_texts
+            if self.df[col].apply(lambda x: isinstance(x, dict) or isinstance(x, list)).any():
+                self.summary["nested_fields_flagged"].append(col)
+
+    def _match_cols(self, keywords):
+        return [col for col in self.df.columns if any(k in col.lower() for k in keywords)]
 
     def drop_empty_columns(self, threshold=0.9):
         null_frac = self.df.isnull().mean()
@@ -116,10 +120,10 @@ class SmartPreprocessor:
         for col in self.text_cols:
             self.df[col] = self.df[col].apply(lambda x: x.strip().title() if isinstance(x, str) else x)
 
-    def drop_duplicates(self, subset=None):
+    def drop_duplicates(self):
         before = self.df.shape[0]
-        if subset and subset in self.df.columns:
-            self.df.drop_duplicates(subset=subset, inplace=True)
+        if self.id_cols:
+            self.df.drop_duplicates(subset=self.id_cols, inplace=True)
         else:
             self.df.drop_duplicates(inplace=True)
         after = self.df.shape[0]
@@ -144,7 +148,6 @@ class SmartPreprocessor:
         outliers = self.summary.get("outliers_flagged", {})
         total_outliers = sum(outliers.values())
 
-        # Health comparison: Before vs After
         health_report = {}
         for k in original_invalids:
             after_k = k.replace("Original", "Remaining")
@@ -163,7 +166,8 @@ class SmartPreprocessor:
                 "Final Rows": final_rows,
                 "Rows Dropped": rows_dropped,
                 "Percent Rows Dropped": pct_rows_dropped,
-                "Columns Removed (Empty >90%)": self.summary.get("columns_removed", [])
+                "Columns Removed (Empty >90%)": self.summary.get("columns_removed", []),
+                "Nested Fields Flagged": self.summary.get("nested_fields_flagged", [])
             },
             "✅ Validations Run": self.summary.get("validations_added", []),
             "❌ Invalid Counts": invalid_counts if invalid_counts else "None",
