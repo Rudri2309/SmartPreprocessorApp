@@ -79,9 +79,9 @@ if df is not None:
         tool.drop_duplicates()
 
         cleaned_df = tool.get_cleaned_data()
-        summary = tool.get_summary()
+        summary = tool.get_summary()  # ✅ Use your full detailed version!
 
-        # --- Show detailed report
+        # --- Show detailed professional report
         st.subheader("📝 Detailed Cleaning Summary Report")
         st.json(summary)
 
@@ -116,7 +116,7 @@ if df is not None:
                 mime="application/json"
             )
 
-        # --- Download cleaning summary
+        # --- Download cleaning summary report
         st.download_button(
             "📄 Download Cleaning Summary Report",
             data=json.dumps(summary, indent=2),
