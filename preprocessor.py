@@ -26,7 +26,7 @@ class SmartPreprocessor:
             "nested_fields_flagged": []
         }
 
-        # Check for nested JSON fields
+        # Detect nested JSON-like fields
         for col in self.df.columns:
             if self.df[col].apply(lambda x: isinstance(x, dict) or isinstance(x, list)).any():
                 self.summary["nested_fields_flagged"].append(col)
@@ -50,7 +50,6 @@ class SmartPreprocessor:
                 self.df[col] = pd.to_numeric(self.df[col], errors='coerce')
         self.numeric_cols = self.df.select_dtypes(include='number').columns.tolist()
 
-    # Replace your clean_phones() with pattern check
     def clean_phones(self):
         for col in self.phone_cols:
             def is_invalid(val):
@@ -68,7 +67,6 @@ class SmartPreprocessor:
             self.summary[f"Original Invalid Phones in {col}"] = int(original_invalid)
             self.summary[f"Remaining Invalid Phones in {col}"] = int(remaining_invalid)
             self.summary["validations_added"].append(validation_col)
-
 
     def validate_emails(self):
         for col in self.email_cols:
@@ -151,25 +149,53 @@ class SmartPreprocessor:
         outliers = self.summary.get("outliers_flagged", {})
         total_outliers = sum(outliers.values())
 
-        health_report = []
+        # ✅ Professional style: only show if needed
+        invalid_data_summary = []
         for k in original_invalids:
             after_k = k.replace("Original", "Remaining")
-            before = self.summary[k]
             after = self.summary.get(after_k, 0)
-            if before == 0 and after == 0:
-                continue  # skip if no invalids at all
+            if after == 0:
+                continue
             pct_of_total = round(after / original_rows * 100, 2) if original_rows else 0
-            improvement = round(((before - after) / before * 100), 2) if before else 0
-
-            health_report.append({
+            invalid_data_summary.append({
                 "Field": k.replace("Original Invalid ", ""),
-                "Before": before,
-                "After": after,
-                "% of Total Rows": pct_of_total,
-                "% Improvement": improvement
+                "Invalids Remaining": after,
+                "% of Total Rows": pct_of_total
             })
 
         report = {
             "Data Shape": {
                 "Original Rows": original_rows,
-                "Final Rows":
+                "Final Rows": final_rows,
+                "Rows Dropped": rows_dropped,
+                "% Rows Dropped": round(pct_rows_dropped, 2),
+            }
+        }
+
+        if self.summary.get("columns_removed"):
+            report["Data Shape"]["Columns Removed"] = self.summary["columns_removed"]
+
+        if self.summary.get("nested_fields_flagged"):
+            report["Data Shape"]["Nested Fields Flagged"] = self.summary["nested_fields_flagged"]
+
+        if self.summary.get("validations_added"):
+            report["Checks Performed"] = self.summary["validations_added"]
+
+        if invalid_data_summary:
+            report["Invalid Data Summary"] = invalid_data_summary
+
+        if negative_counts or total_outliers:
+            report["Numeric Quality"] = {}
+            if negative_counts:
+                report["Numeric Quality"]["Negative Values"] = negative_counts
+            if outliers:
+                report["Numeric Quality"]["Outliers Flagged"] = outliers
+                report["Numeric Quality"]["Total Outliers"] = total_outliers
+
+        if self.summary.get("duplicate_rows_dropped", 0) > 0:
+            report["Duplicates Dropped"] = self.summary.get("duplicate_rows_dropped", 0)
+
+        if rows_dropped == 0 and invalid_data_summary:
+            report["Notes"] = "⚠️ No rows were dropped. Consider fixing invalid records upstream or enabling stricter drop rules."
+
+        return report
